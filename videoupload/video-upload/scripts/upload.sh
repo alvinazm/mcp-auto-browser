@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # 抖音视频上传脚本 (stdio 模式)
-# 用法: ./upload.sh <视频路径> [标题]
+# 用法: ./upload.sh <视频路径> [标题] [封面路径]
+
+# 加载人类行为模拟函数
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/human.sh"
 
 # 检查参数
 if [ -z "$1" ]; then
@@ -94,17 +98,19 @@ if ! echo "$RESULT" | grep -q '"isError":false'; then
 fi
 echo "导航: OK"
 
-echo "等待 5 秒让页面加载..."
-sleep 5
+# 模拟人类阅读页面
+human_read_page_delay
 
 echo ""
 echo "=== 点击上传按钮 ==="
+# 模拟人类反应时间
+human_reaction_delay
 CLICK_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"selector":"button.semi-button","selectorType":"css"}},"id":3}'
 CLICK_RESULT=$(mcp_call "$CLICK_JSON")
 echo "点击结果: $CLICK_RESULT"
 
-echo "等待 2 秒..."
-sleep 2
+# 模拟人类延迟
+human_random_delay
 
 echo ""
 echo "=== 上传视频文件 ==="
@@ -113,21 +119,34 @@ UPLOAD_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\"
 UPLOAD_RESULT=$(mcp_call "$UPLOAD_JSON")
 echo "上传结果: $UPLOAD_RESULT"
 
-echo ""
-echo "=== 等待视频处理 (8秒) ==="
+echo "等待视频处理 (8秒)..."
 sleep 8
 
 echo ""
+echo "=== 滚动页面 ==="
+human_random_delay
+SCROLL_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"down","scrollAmount":3}},"id":4}'
+mcp_call "$SCROLL_JSON" > /dev/null
+echo "滚动完成"
+
+echo ""
+echo "=== 滚动后等待 ==="
+human_scroll_wait
 echo "=== 检查页面状态 ==="
 READ_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{"filter":"interactive"}},"id":5}'
 PAGE_RESULT=$(mcp_call "$READ_JSON")
 echo "页面: $PAGE_RESULT"
 
 if echo "$PAGE_RESULT" | grep -q "标题"; then
+    # 模拟人类阅读
+    human_read_page_delay
+    
     echo ""
     echo "=== 填写标题 ==="
+    # 模拟输入前的延迟
+    human_reaction_delay
     ESCAPED_TITLE=$(echo "$TITLE" | sed 's/"/\\"/g')
-    FILL_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_fill_or_select\",\"arguments\":{\"selector\":\"input[placeholder*=\\\"填写作品标题\\\"]\",\"value\":\"$ESCAPED_TITLE\"}},\"id\":6}"
+    FILL_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_fill_or_select","arguments":{"selector":"input[placeholder*=\"填写作品标题\"]","value":"'"$ESCAPED_TITLE"'"}},"id":6}'
     FILL_RESULT=$(mcp_call "$FILL_JSON")
     echo "填写: $FILL_RESULT"
     
@@ -136,30 +155,29 @@ if echo "$PAGE_RESULT" | grep -q "标题"; then
         echo ""
         echo "=== 上传封面 ==="
         
-        # 根据页面元素，选择封面按钮在 (702, 563)
+        # 模拟人类反应
+        human_reaction_delay
+        
         # 步骤1: 点击"选择封面"按钮 (使用 CSS 选择器)
         echo "步骤1: 点击选择封面按钮"
+        human_reaction_delay
         CLICK_COVER_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"selector":"div.title-wA45Xd","selectorType":"css"}},"id":7}'
         CLICK_COVER_RESULT=$(mcp_call "$CLICK_COVER_JSON")
         echo "点击选择封面: $CLICK_COVER_RESULT"
         
-        echo "等待 3 秒让弹框出现..."
-        sleep 3
+        # 模拟等待弹框出现
+        human_scroll_wait
         
-        # 步骤2: 读取弹框内容
-        echo "步骤2: 读取弹框元素"
-        READ_DIALOG_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{}},"id":8}'
-        READ_DIALOG_RESULT=$(mcp_call "$READ_DIALOG_JSON")
-        echo "弹框元素: $READ_DIALOG_RESULT"
-        
+        # 步骤2: 读取弹框内容 (可以删除，实际只是调试用)
         # 步骤3: 点击"上传封面"按钮
         echo "步骤3: 点击上传封面按钮"
+        human_reaction_delay
         CLICK_UPLOAD_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"coordinates":{"x":1097,"y":610}}},"id":9}'
         CLICK_UPLOAD_RESULT=$(mcp_call "$CLICK_UPLOAD_JSON")
         echo "点击上传封面: $CLICK_UPLOAD_RESULT"
         
-        echo "等待 2 秒..."
-        sleep 2
+        # 模拟人类延迟
+        human_random_delay
         
         # 步骤4: 上传封面文件 (使用精确的选择器)
         echo "步骤4: 上传封面文件"
@@ -168,11 +186,17 @@ if echo "$PAGE_RESULT" | grep -q "标题"; then
         UPLOAD_COVER_RESULT=$(mcp_call "$UPLOAD_COVER_JSON")
         echo "上传封面: $UPLOAD_COVER_RESULT"
         
+        # 模拟封面上传中滚动
+        human_random_delay
+        SCROLL_COVER_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"up","scrollAmount":2}},"id":10}'
+        mcp_call "$SCROLL_COVER_JSON" > /dev/null
+        
         echo "等待 3 秒让封面上传完成..."
         sleep 3
         
         # 步骤5: 点击"完成"按钮
         echo "步骤5: 点击完成按钮"
+        human_reaction_delay
         CLICK_FINISH_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"selector":"button.secondary-zU1YLr","selectorType":"css"}},"id":11}'
         CLICK_FINISH_RESULT=$(mcp_call "$CLICK_FINISH_JSON")
         echo "点击完成: $CLICK_FINISH_RESULT"
