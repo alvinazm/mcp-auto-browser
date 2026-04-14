@@ -309,30 +309,36 @@ cd /Users/azm/MyProject/auto-browser
 
 封面上传需要**两步**：
 1. 点击页面上的"选择封面"按钮 → 打开弹框
-2. 在弹框中点击"上传封面" → 上传图片文件
-
-### 关键坐标
-
-| 步骤 | 元素 | 坐标 (x, y) |
-|------|------|--------------|
-| 1 | 选择封面（横封面） | (702, 563) |
-| 2 | 上传封面按钮（弹框内） | (1097, 610) |
+2. 在弹框中点击"上传封面" → 上传图片文件 → 点击完成
 
 ### 封面上传完整步骤
 
 ```
-步骤1: 点击"选择封面"按钮 (坐标 702,563)
+步骤1: 点击"选择封面"按钮 (CSS选择器: div.title-wA45Xd)
        ↓
 步骤2: 等待 3 秒让弹框出现
        ↓
-步骤3: 点击弹框中的"上传封面"按钮 (坐标 1097,610)
+步骤3: 点击弹框中的"上传封面"按钮 (坐标或点击上传图标)
        ↓
 步骤4: 等待 2 秒
        ↓
-步骤5: 上传封面文件 (选择器: input[type="file"])
+步骤5: 上传封面文件 (选择器: div.upload-BvM5FF input.semi-upload-hidden-input)
        ↓
 步骤6: 等待 3 秒让封面上传完成
+       ↓
+步骤7: 点击"完成"按钮 (CSS选择器: button.secondary-zU1YLr)
 ```
+
+### 关键 CSS 选择器
+
+| 元素 | 选择器 | 说明 |
+|------|--------|------|
+| 选择封面按钮 | `div.title-wA45Xd` | 横封面选择按钮 |
+| 封面上传区域容器 | `div.upload-BvM5FF` | 弹框内上传区域 |
+| 封面文件输入 | `div.upload-BvM5FF input.semi-upload-hidden-input` | 隐藏的文件输入框 |
+| 完成按钮 | `button.secondary-zU1YLr` | 关闭弹框的按钮 |
+
+**注意**：不要使用固定坐标，因为浏览器分辨率不同会导致坐标变化。使用 CSS 选择器更可靠。
 
 ### 弹框中的关键元素
 
@@ -341,6 +347,7 @@ cd /Users/azm/MyProject/auto-browser
 - `generic "上传封面"` - 上传按钮文本
 - `generic "点击上传文件或拖拽文件到这里"` - 上传区域提示
 - `button "设置竖封面"` - 切换到竖封面按钮
+- `button.secondary-zU1YLr` - 完成按钮
 
 ### 带封面上传的使用方法
 
@@ -356,9 +363,68 @@ cd /Users/azm/MyProject/auto-browser
 ### 常见问题
 
 **问题1：弹框没有打开**
-- 检查坐标是否正确
+- 检查选择器是否正确（使用 div.title-wA45Xd 而不是固定坐标）
 - 可能需要先滚动页面让"选择封面"按钮可见
 
 **问题2：找不到 file input**
 - 弹框打开后，页面上会有隐藏的 file input 元素
-- 使用选择器 `input[type="file"]` 可以找到
+- 使用精确的选择器 `div.upload-BvM5FF input.semi-upload-hidden-input`
+
+**问题3：封面上传到了其他地方**
+- 因为页面上可能有多个 input[type="file"] 元素
+- 必须使用精确的选择器定位到弹框内的 input
+
+---
+
+## 九、技术实现细节
+
+### stdio 模式脚本结构
+
+```bash
+#!/bin/bash
+
+# 清理端口
+cleanup() {
+    lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
+    sleep 2
+}
+
+# MCP 调用函数 - 带重试
+mcp_call() {
+    local JSON="$1"
+    # 每次调用都启动新的 node 进程
+    RESULT=$(echo "$JSON" | node "$STDIO_SERVER" 2>&1)
+    echo "$RESULT"
+}
+
+# 主流程
+cleanup
+mcp_call "$INIT_JSON"    # 初始化
+mcp_call "$NAVIGATE_JSON" # 导航
+mcp_call "$CLICK_JSON"    # 点击上传按钮
+mcp_call "$UPLOAD_JSON"   # 上传视频
+sleep 8                   # 等待视频处理
+mcp_call "$FILL_JSON"     # 填写标题
+# 如果有封面
+mcp_call "$CLICK_COVER"   # 点击选择封面
+sleep 3
+mcp_call "$UPLOAD_COVER"  # 上传封面
+sleep 3
+mcp_call "$CLICK_FINISH"  # 点击完成
+```
+
+### 为什么用 stdio 模式而不是 HTTP 模式
+
+| 对比项 | HTTP 模式 | stdio 模式 |
+|--------|-----------|------------|
+| 连接方式 | StreamableHTTPClientTransport | 管道输入输出 |
+| 进程模型 | 单进程长连接 | 每次调用独立进程 |
+| 连续运行 | 第二次会失败 | 可以连续成功 |
+| 资源管理 | 需要手动关闭 | 进程退出自动释放 |
+
+### 核心优势
+
+1. **无状态**：每次调用都是独立的，不存在状态残留
+2. **自动清理**：进程退出后自动释放资源
+3. **简单可靠**：不需要管理长连接
+4. **易于调试**：每次调用都可以单独测试

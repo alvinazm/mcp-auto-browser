@@ -137,9 +137,9 @@ if echo "$PAGE_RESULT" | grep -q "标题"; then
         echo "=== 上传封面 ==="
         
         # 根据页面元素，选择封面按钮在 (702, 563)
-        # 步骤1: 点击"选择封面"按钮 (横封面)
+        # 步骤1: 点击"选择封面"按钮 (使用 CSS 选择器)
         echo "步骤1: 点击选择封面按钮"
-        CLICK_COVER_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"coordinates":{"x":702,"y":563}}},"id":7}'
+        CLICK_COVER_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"selector":"div.title-wA45Xd","selectorType":"css"}},"id":7}'
         CLICK_COVER_RESULT=$(mcp_call "$CLICK_COVER_JSON")
         echo "点击选择封面: $CLICK_COVER_RESULT"
         
