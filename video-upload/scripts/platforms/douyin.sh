@@ -5,7 +5,7 @@
 
 # 加载人类行为模拟函数
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/human.sh"
+source "$SCRIPT_DIR/../human.sh"
 
 # 检查参数
 if [ -z "$1" ]; then
