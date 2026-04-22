@@ -103,7 +103,13 @@ upload_video_baijiahao() {
     echo ""
     echo "=== 滚动后等待 ==="
     human_scroll_wait
-    sleep 2
+
+    echo "=== 检查页面状态 ==="
+    READ_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{"filter":"interactive"}},"id":5}'
+    PAGE_RESULT=$(mcp_call "$READ_JSON")
+    echo "页面: $PAGE_RESULT"
+
+    # 填写标题 -百家号使用 Lexical 编辑器，必须通过 document.execCommand('insertText') 触发
     echo ""
     echo "=== 填写标题 ==="
     human_reaction_delay
