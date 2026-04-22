@@ -83,10 +83,6 @@ upload_video_xiaohongshu() {
     fi
     echo "导航: OK"
 
-    # 模拟人类阅读页面
-    human_read_page_delay
-
-    echo ""
     echo "=== 上传视频文件 ==="
     human_reaction_delay
     ESCAPED_PATH=$(echo "$video_path" | sed 's/"/\\"/g')
@@ -99,14 +95,9 @@ upload_video_xiaohongshu() {
 
     echo ""
     echo "=== 滚动页面 ==="
-    human_random_delay
     SCROLL_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"down","scrollAmount":3}},"id":4}'
     mcp_call "$SCROLL_JSON" > /dev/null
     echo "滚动完成"
-
-    echo ""
-    echo "=== 滚动后等待 ==="
-    human_scroll_wait
 
     echo "=== 检查页面状态 ==="
     READ_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{"filter":"interactive"}},"id":5}'
@@ -117,15 +108,11 @@ upload_video_xiaohongshu() {
     if echo "$PAGE_RESULT" | grep -q "标题"; then
         echo ""
         echo "=== 填写标题 ==="
-        human_reaction_delay
         ESCAPED_TITLE=$(echo "$title" | sed 's/"/\\"/g')
         FILL_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_fill_or_select\",\"arguments\":{\"selector\":\"input[placeholder*=\\\"标题\\\"]\",\"value\":\"$ESCAPED_TITLE\"}},\"id\":6}"
         FILL_RESULT=$(mcp_call "$FILL_JSON")
         echo "填写: $FILL_RESULT"
     fi
-    
-    FILL_RESULT=$(mcp_call "$SET_JSON")
-    echo "填写结果: $FILL_RESULT"
 
     echo ""
     echo "============================================"

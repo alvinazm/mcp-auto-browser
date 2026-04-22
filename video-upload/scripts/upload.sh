@@ -15,7 +15,7 @@ is_platform_supported() {
     esac
 }
 
-ALL_PLATFORMS="douyin xiaohongshu kuaishou baijiahao bilibili"
+ALL_PLATFORMS="douyin kuaishou xiaohongshu bilibili baijiahao"
 
 # ========== 使用说明 ==========
 usage() {

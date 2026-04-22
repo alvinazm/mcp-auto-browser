@@ -115,7 +115,6 @@ upload_video_bilibili() {
 
     echo ""
     echo "=== 填写标题 ==="
-    human_reaction_delay
     ESCAPED_TITLE=$(echo "$title" | sed 's/"/\\"/g')
     # B站标题选择器 (参照原项目 routes.py: input[placeholder*="稿件标题"])
     FILL_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_fill_or_select\",\"arguments\":{\"selector\":\"input[placeholder*=\\\"稿件标题\\\"]\",\"value\":\"$ESCAPED_TITLE\"}},\"id\":6}"

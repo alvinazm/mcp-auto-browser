@@ -86,14 +86,9 @@ upload_video_kuaishou() {
     human_read_page_delay
 
     echo ""
-    echo "=== 滚动页面查找上传区域 ==="
-    human_scroll_wait
     SCROLL_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"down","scrollAmount":3}},"id":3}'
     mcp_call "$SCROLL_JSON" > /dev/null
-    human_random_delay
-    echo "滚动: OK"
 
-    echo ""
     echo "=== 上传视频文件 ==="
     ESCAPED_PATH=$(echo "$video_path" | sed 's/"/\\"/g')
     UPLOAD_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_upload_file\",\"arguments\":{\"selector\":\"input[type=\\\"file\\\"]\",\"filePath\":\"$ESCAPED_PATH\"}},\"id\":4}"
@@ -105,7 +100,6 @@ upload_video_kuaishou() {
 
     echo ""
     echo "=== 滚动页面 ==="
-    human_random_delay
     SCROLL_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"down","scrollAmount":3}},"id":4}'
     mcp_call "$SCROLL_JSON" > /dev/null
     human_scroll_wait
@@ -113,7 +107,6 @@ upload_video_kuaishou() {
 
     echo ""
     echo "=== 填写作品描述 (JavaScript直接设置) ==="
-    human_reaction_delay
     
     # 使用 JavaScript 直接设置 innerText
     ESCAPED_TITLE=$(echo "$title" | sed "s/'/\\\\'/g")

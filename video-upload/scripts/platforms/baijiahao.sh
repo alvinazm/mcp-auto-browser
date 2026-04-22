@@ -79,9 +79,6 @@ upload_video_baijiahao() {
     fi
     echo "导航: OK"
 
-    # 模拟人类阅读页面
-    human_read_page_delay
-
     echo ""
     echo "=== 上传视频文件 ==="
     human_reaction_delay
@@ -99,10 +96,6 @@ upload_video_baijiahao() {
     SCROLL_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"down","scrollAmount":3}},"id":4}'
     mcp_call "$SCROLL_JSON" > /dev/null
     echo "滚动完成"
-
-    echo ""
-    echo "=== 滚动后等待 ==="
-    human_scroll_wait
 
     echo "=== 检查页面状态 ==="
     READ_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{"filter":"interactive"}},"id":5}'

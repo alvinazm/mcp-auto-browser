@@ -153,8 +153,6 @@ upload_video_douyin() {
             CLICK_UPLOAD_RESULT=$(mcp_call "$CLICK_UPLOAD_JSON")
             echo "点击上传封面: $CLICK_UPLOAD_RESULT"
             
-            human_random_delay
-            
             echo "步骤3: 上传封面文件"
             ESCAPED_COVER=$(echo "$cover_path" | sed 's/"/\\"/g')
             UPLOAD_COVER_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_upload_file\",\"arguments\":{\"selector\":\"div.upload-BvM5FF input.semi-upload-hidden-input\",\"filePath\":\"$ESCAPED_COVER\"}},\"id\":10}"
@@ -168,7 +166,6 @@ upload_video_douyin() {
             sleep 3
             
             echo "步骤4: 点击完成按钮"
-            human_reaction_delay
             CLICK_FINISH_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"selector":"button.secondary-zU1YLr","selectorType":"css"}},"id":11}'
             CLICK_FINISH_RESULT=$(mcp_call "$CLICK_FINISH_JSON")
             echo "点击完成: $CLICK_FINISH_RESULT"
