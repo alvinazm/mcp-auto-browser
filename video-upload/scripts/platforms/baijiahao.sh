@@ -3,11 +3,12 @@
 # 百家号视频上传脚本 (stdio 模式)
 # 100% 参照 douyin.sh 的 MCP 处理方式
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../human.sh"
 
 STDIO_SERVER="${STDIO_SERVER:-/Users/azm/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/mcp-server-stdio.js}"
 
+# 检测是否被 source（作为函数被调用）
 _is_sourced() {
     [[ "${BASH_SOURCE[0]}" != "${0}" ]]
 }
@@ -83,20 +84,10 @@ upload_video_baijiahao() {
     human_read_page_delay
 
     echo ""
-    echo "=== 点击上传按钮 ==="
-    human_reaction_delay
-    # 百家号上传按钮选择器 (参照原项目 routes.py: input[type="file"])
-    CLICK_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"selector":"input[type=\"file\"]","selectorType":"css"}},"id":3}'
-    CLICK_RESULT=$(mcp_call "$CLICK_JSON")
-    echo "点击结果: $CLICK_RESULT"
-
-    # 模拟人类延迟
-    human_random_delay
-
-    echo ""
     echo "=== 上传视频文件 ==="
+    human_reaction_delay
     ESCAPED_PATH=$(echo "$video_path" | sed 's/"/\\"/g')
-    UPLOAD_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_upload_file\",\"arguments\":{\"selector\":\"input[type=\\\"file\\\"]\",\"filePath\":\"$ESCAPED_PATH\"}},\"id\":4}"
+    UPLOAD_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_upload_file\",\"arguments\":{\"selector\":\"input[type=\\\"file\\\"]\",\"filePath\":\"$ESCAPED_PATH\"}},\"id\":3}"
     UPLOAD_RESULT=$(mcp_call "$UPLOAD_JSON")
     echo "上传结果: $UPLOAD_RESULT"
 
@@ -113,24 +104,49 @@ upload_video_baijiahao() {
     echo ""
     echo "=== 滚动后等待 ==="
     human_scroll_wait
+    sleep 2
 
     echo "=== 检查页面状态 ==="
     READ_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{"filter":"interactive"}},"id":5}'
     PAGE_RESULT=$(mcp_call "$READ_JSON")
     echo "页面: $PAGE_RESULT"
 
-    if echo "$PAGE_RESULT" | grep -q "标题"; then
-        human_read_page_delay
-        
-        echo ""
-        echo "=== 填写标题 ==="
-        human_reaction_delay
-        ESCAPED_TITLE=$(echo "$title" | sed 's/"/\\"/g')
-        # 百家号标题选择器 (参照原项目 routes.py: input[placeholder*="添加标题"])
-        FILL_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_fill_or_select\",\"arguments\":{\"selector\":\"input[placeholder*=\\\"添加标题\\\"]\",\"value\":\"$ESCAPED_TITLE\"}},\"id\":6}"
-        FILL_RESULT=$(mcp_call "$FILL_JSON")
-        echo "填写结果: $FILL_RESULT"
-    fi
+    # 填写标题 -百家号使用 Lexical 编辑器，必须通过 document.execCommand('insertText') 触发
+    echo ""
+    echo "=== 填写标题 ==="
+    human_reaction_delay
+
+    # JS 代码写临时文件, 避免 bash 引号嵌套问题 (100% 参照 douyin.sh 风格)
+    JS_TEMP=$(mktemp)
+    cat > "$JS_TEMP" << 'JSEOF'
+var el = document.querySelector('[data-lexical-editor="true"]');
+if (el) {
+    el.textContent = '';
+    el.dispatchEvent(new InputEvent('beforeinput', {inputType: 'deleteContentBackward', bubbles: true}));
+    el.dispatchEvent(new InputEvent('input', {inputType: 'deleteContentBackward', bubbles: true}));
+    el.focus();
+    document.execCommand('selectAll', false, null);
+    document.execCommand('insertText', false, 'TITLE_PLACEHOLDER');
+    el.dispatchEvent(new Event('change', {bubbles: true}));
+}
+JSEOF
+
+    # 替换标题占位符
+    ESCAPED_TITLE=$(echo "$title" | sed 's/'\''/\\'\''/g')
+    sed -i '' "s/TITLE_PLACEHOLDER/$ESCAPED_TITLE/g" "$JS_TEMP"
+
+    # 用 Python 构造 JSON (避免 bash 引号嵌套问题, 参照 douyin.sh sed 风格)
+    JS_JSON=$(python3 -c "
+import json
+with open('$JS_TEMP', 'r') as f:
+    code = f.read()
+d = {'jsonrpc': '2.0', 'method': 'tools/call', 'params': {'name': 'chrome_javascript', 'arguments': {'code': code}}, 'id': 6}
+print(json.dumps(d, ensure_ascii=False))
+")
+    rm -f "$JS_TEMP"
+
+    FILL_RESULT=$(mcp_call "$JS_JSON")
+    echo "填写结果: $FILL_RESULT"
 
     echo ""
     echo "============================================"
