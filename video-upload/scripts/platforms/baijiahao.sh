@@ -104,7 +104,6 @@ upload_video_baijiahao() {
     echo ""
     echo "=== 滚动后等待 ==="
     human_scroll_wait
-    sleep 2
 
     echo "=== 检查页面状态 ==="
     READ_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{"filter":"interactive"}},"id":5}'
