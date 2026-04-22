@@ -3,7 +3,7 @@
 # 百家号视频上传脚本 (stdio 模式)
 # 100% 参照 douyin.sh 的 MCP 处理方式
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../human.sh"
 
 STDIO_SERVER="${STDIO_SERVER:-/Users/azm/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/mcp-server-stdio.js}"
@@ -100,8 +100,8 @@ upload_video_baijiahao() {
     UPLOAD_RESULT=$(mcp_call "$UPLOAD_JSON")
     echo "上传结果: $UPLOAD_RESULT"
 
-    echo "等待视频处理 (8秒)..."
-    sleep 8
+    echo "等待视频处理 (3秒)..."
+    sleep 3
 
     echo ""
     echo "=== 滚动页面 ==="

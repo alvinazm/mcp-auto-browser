@@ -114,8 +114,8 @@ upload_video_douyin() {
     UPLOAD_RESULT=$(mcp_call "$UPLOAD_JSON")
     echo "上传结果: $UPLOAD_RESULT"
 
-    echo "等待视频处理 (8秒)..."
-    sleep 8
+    echo "等待视频处理 (2秒)..."
+    sleep 2
 
     echo ""
     echo "=== 滚动页面 ==="
@@ -127,6 +127,7 @@ upload_video_douyin() {
     echo ""
     echo "=== 滚动后等待 ==="
     human_scroll_wait
+
     echo "=== 检查页面状态 ==="
     READ_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_read_page","arguments":{"filter":"interactive"}},"id":5}'
     PAGE_RESULT=$(mcp_call "$READ_JSON")
@@ -172,7 +173,6 @@ upload_video_douyin() {
             UPLOAD_COVER_RESULT=$(mcp_call "$UPLOAD_COVER_JSON")
             echo "上传封面: $UPLOAD_COVER_RESULT"
             
-            human_random_delay
             SCROLL_COVER_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"up","scrollAmount":2}},"id":10}'
             mcp_call "$SCROLL_COVER_JSON" > /dev/null
             

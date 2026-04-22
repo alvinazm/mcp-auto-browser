@@ -101,8 +101,8 @@ upload_video_kuaishou() {
     UPLOAD_RESULT=$(mcp_call "$UPLOAD_JSON")
     echo "上传结果: $UPLOAD_RESULT"
 
-    echo "等待视频上传 (10秒)..."
-    sleep 10
+    echo "等待视频上传 (3秒)..."
+    sleep 3
 
     echo ""
     echo "=== 滚动页面 ==="
