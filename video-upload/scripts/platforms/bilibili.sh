@@ -3,11 +3,12 @@
 # B站视频上传脚本 (stdio 模式)
 # 100% 参照 douyin.sh 的 MCP 处理方式
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../human.sh"
 
 STDIO_SERVER="${STDIO_SERVER:-/Users/azm/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/mcp-server-stdio.js}"
 
+# 检测是否被 source（作为函数被调用）
 _is_sourced() {
     [[ "${BASH_SOURCE[0]}" != "${0}" ]]
 }
