@@ -33,14 +33,16 @@ await client.callTool({ name: 'chrome_read_page', ... });
 await client.close();
 ```
 
-### 2. 等待时间很关键
+### 2. 等待时间
 
 | 环节 | 等待时间 | 原因 |
 |------|----------|------|
-| 导航后 | 5 秒 | 等待页面完全加载 |
-| 上传后 | **8 秒** | 等待视频处理完成（关键！） |
-
-**教训**：之前只等 5 秒导致失败，需要 8 秒才能让视频处理完成并跳转到编辑页面。
+| 导航后 | `human_read_page_delay` | 模拟人类阅读页面的随机延迟（3~6秒） |
+| 点击后 | `human_reaction_delay` | 模拟人类反应延迟（1~3秒） |
+| 上传后 | 2 秒 | 等待视频上传完成触发页面变化 |
+| 滚动后 | `human_scroll_wait` | 模拟滚动后的停顿（0.5~1.5秒） |
+| 封面上传后 | 3 秒 | 等待封面处理完成 |
+| 封面弹框出现 | 3 秒 | 等待弹框 DOM 渲染完成 |
 
 ### 3. 不要启动 MCP 服务
 
@@ -76,8 +78,8 @@ fi
 ### 步骤 2: 执行上传脚本
 
 ```bash
-cd /Users/azm/MyProject/auto-browser
-./videoupload/video-upload/scripts/upload.sh /path/to/video.mp4 "视频标题"
+cd /Users/azm/MyProject/auto-browser/video-upload
+./scripts/platforms/douyin.sh /path/to/video.mp4 "视频标题"
 ```
 
 ### 步骤 3: 流程说明
@@ -85,22 +87,36 @@ cd /Users/azm/MyProject/auto-browser
 ```
 环节 1: 检查 MCP 服务 (端口 12306)
        ↓
-环节 2: 导航到上传页面 (等待 5 秒)
+环节 2: 初始化 MCP 连接
        ↓
-环节 3: 上传视频文件 (选择器: input[type="file"])
+环节 3: 导航到上传页面
        ↓
-环节 4: 等待视频处理 (等待 8 秒) ← 关键！
+环节 4: 人类阅读延迟 (3~6秒) ← 使用 human.sh 模拟
        ↓
-环节 5: 检查页面状态 (是否出现标题输入框)
+环节 5: 点击"上传视频"按钮
        ↓
-环节 6: 填写标题 (可选)
+环节 6: 人类反应延迟 (1~3秒)
+       ↓
+环节 7: 上传视频文件 (选择器: input[type="file"])
+       ↓
+环节 8: 等待视频上传 (2秒)
+       ↓
+环节 9: 滚动页面 + 人类滚动延迟
+       ↓
+环节 10: 人类反应延迟 (1~3秒)
+       ↓
+环节 11: 填写标题
+       ↓
+环节 12: 如有封面 → 点击选择封面 → 人类延迟 → 上传封面 → 等待 3 秒 → 点击完成
 ```
 
 ---
 
 ## 三、关键代码片段
 
-### MCP 客户端初始化
+### MCP 客户端初始化（仅供参考，当前脚本使用 stdio 模式直接发 JSON-RPC）
+
+> 注意：当前成功的脚本不使用 Node.js SDK，而是通过 bash 直接发 JSON-RPC 到 stdio 服务器。以下代码仅用于理解底层通信原理。
 
 ```javascript
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
@@ -134,8 +150,8 @@ const uploadResult = await client.callTool({
 ### 检查上传结果
 
 ```javascript
-// 上传后等待 8 秒
-await new Promise(r => setTimeout(r, 8000));
+// 上传后等待 2 秒
+await new Promise(r => setTimeout(r, 2000));
 
 // 检查页面是否出现标题输入框
 const pageResult = await client.callTool({ 
@@ -180,9 +196,9 @@ ls -la /path/to/video.mp4
 
 ### 错误 4: 上传后页面没有跳转
 
-**原因**：等待时间不够
+**原因**：等待时间不够或页面元素选择器不对
 
-**解决**：上传后等待至少 8 秒
+**解决**：确认上传完成后等待 2 秒再执行后续操作
 
 ---
 
@@ -190,7 +206,8 @@ ls -la /path/to/video.mp4
 
 | 文件 | 路径 |
 |------|------|
-| 上传脚本 | `/Users/azm/MyProject/auto-browser/videoupload/video-upload/scripts/upload.sh` |
+| 平台脚本 | `/Users/azm/MyProject/auto-browser/video-upload/scripts/platforms/douyin.sh` |
+| human.sh 函数库 | `/Users/azm/MyProject/auto-browser/video-upload/scripts/human.sh` |
 | stdio 配置 | `/Users/azm/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/stdio-config.json` |
 | MCP SDK | `/Users/azm/Library/pnpm/global/5/.pnpm/@modelcontextprotocol+sdk@1.29.0_zod@3.25.76/node_modules/` |
 
@@ -199,9 +216,10 @@ ls -la /path/to/video.mp4
 ## 六、重要提示
 
 1. **不要多次创建客户端** - 这是导致 "Already connected" 错误的根本原因
-2. **等待时间要足够** - 特别是上传后的 15 秒等待
+2. **使用 human.sh 模拟人类行为** - 所有延迟通过 human_read_page_delay、human_reaction_delay、human_random_delay、human_scroll_wait 模拟，比固定 sleep 更自然
 3. **MCP 服务由扩展管理** - 不需要在脚本中启动
 4. **使用正确的选择器** - `input[type="file"]` 是上传视频的关键选择器
+5. **上传后等待 2 秒** - 视频上传触发页面变化后再执行后续操作
 
 ---
 
@@ -260,16 +278,23 @@ done
 
 | 步骤 | 操作 | 说明 |
 |------|------|------|
-| 1 | cleanup | 清理残留进程 |
+| 1 | cleanup | 清理端口残留进程 |
 | 2 | initialize | 初始化 MCP 连接 |
 | 3 | navigate | 打开上传页面 |
-| 4 | sleep 5 | 等待页面加载 |
+| 4 | human_read_page_delay | 人类阅读延迟 (3~6秒) |
 | 5 | click_element | 点击"上传视频"按钮 |
-| 6 | sleep 2 | 等待文件对话框 |
+| 6 | human_reaction_delay | 人类反应延迟 (1~3秒) |
 | 7 | upload_file | 上传视频文件 |
-| 8 | sleep 8 | 等待视频处理（关键！） |
-| 9 | read_page | 检查页面状态 |
-| 10 | fill_or_select | 填写标题（可选） |
+| 8 | sleep 2 | 等待视频上传触发页面变化 |
+| 9 | scroll + human_scroll_wait | 滚动页面并模拟人类滚动 |
+| 10 | human_reaction_delay | 人类反应延迟 (1~3秒) |
+| 11 | fill_or_select | 填写标题 |
+| 12 | click_element (封面) | 点击"选择封面"按钮 |
+| 13 | sleep 3 | 等待弹框出现 |
+| 14 | click_element (坐标) | 点击弹框内"上传封面" |
+| 15 | upload_file (封面) | 上传封面文件 |
+| 16 | sleep 3 | 等待封面处理 |
+| 17 | click_element | 点击"完成"按钮 |
 
 #### 5. 与之前失败方案的区别
 
@@ -291,15 +316,20 @@ done
 ### 当前脚本路径
 
 ```bash
-/Users/azm/MyProject/auto-browser/videoupload/video-upload/scripts/upload.sh
+/Users/azm/MyProject/auto-browser/video-upload/scripts/platforms/douyin.sh
 ```
 
 ### 使用方法
 
 ```bash
-cd /Users/azm/MyProject/auto-browser
-./videoupload/video-upload/scripts/upload.sh /path/to/video.mp4 "视频标题"
+cd /Users/azm/MyProject/auto-browser/video-upload
+./scripts/platforms/douyin.sh /path/to/video.mp4 "视频标题" /path/to/cover.jpg
 ```
+
+参数说明：
+- 第1个参数：视频文件路径（必填）
+- 第2个参数：视频标题（可选，默认"测试视频上传"）
+- 第3个参数：封面图片路径（可选，不填则不上传封面）
 
 ---
 
@@ -338,7 +368,7 @@ cd /Users/azm/MyProject/auto-browser
 | 封面文件输入 | `div.upload-BvM5FF input.semi-upload-hidden-input` | 隐藏的文件输入框 |
 | 完成按钮 | `button.secondary-zU1YLr` | 关闭弹框的按钮 |
 
-**注意**：不要使用固定坐标，因为浏览器分辨率不同会导致坐标变化。使用 CSS 选择器更可靠。
+**注意**：弹框内的"上传封面"按钮目前使用固定坐标 `(x:1097, y:610)` 点击，因为弹框内的按钮选择器不稳定。CSS 选择器 `div.upload-BvM5FF input.semi-upload-hidden-input` 仅用于文件上传步骤。
 
 ### 弹框中的关键元素
 
@@ -352,7 +382,7 @@ cd /Users/azm/MyProject/auto-browser
 ### 带封面上传的使用方法
 
 ```bash
-./videoupload/video-upload/scripts/upload.sh /path/to/video.mp4 "视频标题" /path/to/cover.jpg
+./scripts/platforms/douyin.sh /path/to/video.mp4 "视频标题" /path/to/cover.jpg
 ```
 
 参数说明：
@@ -363,7 +393,7 @@ cd /Users/azm/MyProject/auto-browser
 ### 常见问题
 
 **问题1：弹框没有打开**
-- 检查选择器是否正确（使用 div.title-wA45Xd 而不是固定坐标）
+- 检查选择器是否正确（使用 `div.title-wA45Xd` 选择器）
 - 可能需要先滚动页面让"选择封面"按钮可见
 
 **问题2：找不到 file input**
@@ -383,6 +413,8 @@ cd /Users/azm/MyProject/auto-browser
 ```bash
 #!/bin/bash
 
+source "$(dirname "${BASH_SOURCE[0]}")/../human.sh"
+
 # 清理端口
 cleanup() {
     lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
@@ -392,25 +424,24 @@ cleanup() {
 # MCP 调用函数 - 带重试
 mcp_call() {
     local JSON="$1"
-    # 每次调用都启动新的 node 进程
+    # 每次调用启动新的 node 进程，请求完成后进程退出
     RESULT=$(echo "$JSON" | node "$STDIO_SERVER" 2>&1)
-    echo "$RESULT"
 }
 
 # 主流程
 cleanup
-mcp_call "$INIT_JSON"    # 初始化
-mcp_call "$NAVIGATE_JSON" # 导航
-mcp_call "$CLICK_JSON"    # 点击上传按钮
-mcp_call "$UPLOAD_JSON"   # 上传视频
-sleep 8                   # 等待视频处理
-mcp_call "$FILL_JSON"     # 填写标题
-# 如果有封面
-mcp_call "$CLICK_COVER"   # 点击选择封面
-sleep 3
-mcp_call "$UPLOAD_COVER"  # 上传封面
-sleep 3
-mcp_call "$CLICK_FINISH"  # 点击完成
+mcp_call "$INIT_JSON"           # 初始化
+mcp_call "$NAVIGATE_JSON"       # 导航
+human_read_page_delay           # 人类阅读延迟
+mcp_call "$CLICK_JSON"          # 点击上传按钮
+human_reaction_delay            # 人类反应延迟
+mcp_call "$UPLOAD_JSON"          # 上传视频
+sleep 2                          # 等待视频上传
+mcp_call "$SCROLL_JSON"          # 滚动页面
+human_scroll_wait
+human_reaction_delay
+mcp_call "$FILL_JSON"           # 填写标题
+# 如有封面 → 点击选择封面 → sleep 3 → 点击上传 → 上传文件 → sleep 3 → 点击完成
 ```
 
 ### 为什么用 stdio 模式而不是 HTTP 模式
