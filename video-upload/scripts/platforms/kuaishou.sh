@@ -9,7 +9,7 @@ source "$PLATFORM_SCRIPT_DIR/../human.sh"
 # 清理旧进程，确保每个平台使用新连接
 lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
 rm -f /tmp/mcp_session_*
-sleep 3
+sleep 5
 
 # 加载 MCP HTTP 函数
 source "$PLATFORM_SCRIPT_DIR/../mcp-http.sh"
@@ -53,6 +53,15 @@ upload_video_kuaishou() {
 
     # 模拟人类阅读页面
     human_read_page_delay
+
+    echo ""
+    echo "=== 点击上传按钮 ==="
+    human_reaction_delay
+    CLICK_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_click_element","arguments":{"selector":"button.upload-btn","selectorType":"css"}},"id":3}'
+    CLICK_RESULT=$(mcp_call "$CLICK_JSON")
+    echo "点击上传按钮: $CLICK_RESULT"
+
+    human_random_delay
 
     echo ""
     echo "=== 上传视频文件 ==="

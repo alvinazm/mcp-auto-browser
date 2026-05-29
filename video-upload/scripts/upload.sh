@@ -88,7 +88,7 @@ if [ "$PLATFORM" = "all" ]; then
         fi
 
         # 每个平台之间等待，避免浏览器状态冲突
-        sleep 2
+        sleep 4
     done
 
     echo ""
