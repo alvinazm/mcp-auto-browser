@@ -1,49 +1,23 @@
 #!/bin/bash
 
-# X (Twitter) 视频上传脚本 (stdio 模式)
+# X (Twitter) 视频上传脚本 (HTTP 模式)
 # 被 upload.sh 调用: upload_video_x <视频路径> <标题>
 # 或单独运行: ./x.sh <视频路径> [标题]
 
 PLATFORM_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PLATFORM_SCRIPT_DIR/../human.sh"
 
-STDIO_SERVER="${STDIO_SERVER:-/Users/azm/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/mcp-server-stdio.js}"
+# 清理旧进程，确保每个平台使用新连接
+lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
+rm -f /tmp/mcp_session_*
+sleep 3
+
+# 加载 MCP HTTP 函数
+source "$PLATFORM_SCRIPT_DIR/../mcp-http.sh"
 
 # 检测是否被 source（作为函数被调用）
 _is_sourced() {
     [[ "${BASH_SOURCE[0]}" != "${0}" ]]
-}
-
-# MCP 调用函数 - 带重试
-mcp_call() {
-    local JSON="$1"
-    local max_retries=5
-    local retry=0
-    local RESULT=""
-
-    while [ $retry -lt $max_retries ]; do
-        if [ $retry -gt 0 ]; then
-            lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
-            sleep 2
-        fi
-
-        RESULT=$(echo "$JSON" | node "$STDIO_SERVER" 2>&1)
-
-        if echo "$RESULT" | grep -q '"jsonrpc"'; then
-            if echo "$RESULT" | grep -q 'ECONNREFUSED\|Failed to connect'; then
-                retry=$((retry + 1))
-                continue
-            fi
-            echo "$RESULT"
-            return 0
-        fi
-
-        retry=$((retry + 1))
-        sleep 2
-    done
-
-    echo "$RESULT"
-    return 1
 }
 
 # X 平台视频上传函数
@@ -52,7 +26,7 @@ upload_video_x() {
     local title="$2"
 
     echo "============================================"
-    echo "X 平台视频上传脚本 (stdio模式)"
+    echo "X 平台视频上传脚本 (HTTP模式)"
     echo "视频路径: $video_path"
     echo "标题: $title"
     echo "============================================"
@@ -63,14 +37,9 @@ upload_video_x() {
         return 1
     fi
 
-    # 清理端口
-    lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head-1 | xargs kill -9 2>/dev/null
-    sleep 2
-
     echo ""
     echo "=== 初始化 MCP ==="
-    INIT_JSON='{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"cli","version":"1.0"}},"id":1}'
-    mcp_call "$INIT_JSON" > /dev/null
+    mcp_wait_ready || { echo "MCP 初始化失败"; return 1; }
 
     echo ""
     echo "=== 打开 X 首页 ==="
@@ -137,7 +106,7 @@ d = {
     'params': {
         'name': 'chrome_upload_file',
         'arguments': {
-            'selector': 'input[data-testid="fileInput"]',
+            'selector': 'input[data-testid=\"fileInput\"]',
             'filePath': '$ESCAPED_PATH'
         }
     },
@@ -188,7 +157,7 @@ if (contents) {
     var block = contents.querySelector('[data-block="true"]');
     var offsetSpan = block && block.querySelector('span[data-offset-key]');
     var textSpan = offsetSpan && offsetSpan.querySelector('span[data-text="true"]');
-    
+
     if (textSpan) {
         textSpan.textContent = '';
         textSpan.textContent = 'TITLE_PLACEHOLDER';

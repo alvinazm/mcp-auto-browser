@@ -1,49 +1,23 @@
 #!/bin/bash
 
-# 小红书视频上传脚本 (stdio 模式)
+# 小红书视频上传脚本 (HTTP 模式)
 # 被 upload.sh 调用: upload_video_xiaohongshu <视频路径> <标题>
 # 或单独运行: ./xiaohongshu.sh <视频路径> [标题]
 
 PLATFORM_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PLATFORM_SCRIPT_DIR/../human.sh"
 
-STDIO_SERVER="${STDIO_SERVER:-/Users/azm/Library/pnpm/global/5/node_modules/mcp-chrome-bridge/dist/mcp/mcp-server-stdio.js}"
+# 清理旧进程，确保每个平台使用新连接
+lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
+rm -f /tmp/mcp_session_*
+sleep 3
+
+# 加载 MCP HTTP 函数
+source "$PLATFORM_SCRIPT_DIR/../mcp-http.sh"
 
 # 检测是否被 source（作为函数被调用）
 _is_sourced() {
     [[ "${BASH_SOURCE[0]}" != "${0}" ]]
-}
-
-# MCP 调用函数 - 带重试
-mcp_call() {
-    local JSON="$1"
-    local max_retries=5
-    local retry=0
-    local RESULT=""
-
-    while [ $retry -lt $max_retries ]; do
-        if [ $retry -gt 0 ]; then
-            lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
-            sleep 2
-        fi
-
-        RESULT=$(echo "$JSON" | node "$STDIO_SERVER" 2>&1)
-
-        if echo "$RESULT" | grep -q '"jsonrpc"'; then
-            if echo "$RESULT" | grep -q 'ECONNREFUSED\|Failed to connect'; then
-                retry=$((retry + 1))
-                continue
-            fi
-            echo "$RESULT"
-            return 0
-        fi
-
-        retry=$((retry + 1))
-        sleep 2
-    done
-
-    echo "$RESULT"
-    return 1
 }
 
 # 小红书视频上传函数
@@ -52,7 +26,7 @@ upload_video_xiaohongshu() {
     local title="$2"
 
     echo "============================================"
-    echo "小红书视频上传脚本 (stdio模式)"
+    echo "小红书视频上传脚本 (HTTP模式)"
     echo "视频路径: $video_path"
     echo "标题: $title"
     echo "============================================"
@@ -63,14 +37,9 @@ upload_video_xiaohongshu() {
         return 1
     fi
 
-    # 清理端口
-    lsof -i :12306 2>/dev/null | grep -v PID | awk '{print $2}' | head -1 | xargs kill -9 2>/dev/null
-    sleep 2
-
     echo ""
     echo "=== 初始化 MCP ==="
-    INIT_JSON='{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"cli","version":"1.0"}},"id":1}'
-    mcp_call "$INIT_JSON" > /dev/null
+    mcp_wait_ready || { echo "MCP 初始化失败"; return 1; }
 
     echo ""
     echo "=== 打开上传页面 ==="
@@ -83,8 +52,15 @@ upload_video_xiaohongshu() {
     fi
     echo "导航: OK"
 
+    # 滚动页面，让上传按钮可见
+    echo ""
+    echo "=== 滚动页面 ==="
+    SCROLL_BEFORE_JSON='{"jsonrpc":"2.0","method":"tools/call","params":{"name":"chrome_computer","arguments":{"action":"scroll","scrollDirection":"down","scrollAmount":3}},"id":3}'
+    mcp_call "$SCROLL_BEFORE_JSON" > /dev/null
+    human_read_page_delay
+
     echo "=== 上传视频文件 ==="
-    human_reaction_delay
+    human_read_page_delay
     ESCAPED_PATH=$(echo "$video_path" | sed 's/"/\\"/g')
     UPLOAD_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_upload_file\",\"arguments\":{\"selector\":\"input[type=\\\"file\\\"]\",\"filePath\":\"$ESCAPED_PATH\"}},\"id\":3}"
     UPLOAD_RESULT=$(mcp_call "$UPLOAD_JSON")
@@ -104,15 +80,14 @@ upload_video_xiaohongshu() {
     PAGE_RESULT=$(mcp_call "$READ_JSON")
     echo "页面: $PAGE_RESULT"
 
-    # 填写标题 - 100% 参照 douyin.sh
-    if echo "$PAGE_RESULT" | grep -q "标题"; then
-        echo ""
-        echo "=== 填写标题 ==="
-        ESCAPED_TITLE=$(echo "$title" | sed 's/"/\\"/g')
-        FILL_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_fill_or_select\",\"arguments\":{\"selector\":\"input[placeholder*=\\\"标题\\\"]\",\"value\":\"$ESCAPED_TITLE\"}},\"id\":6}"
-        FILL_RESULT=$(mcp_call "$FILL_JSON")
-        echo "填写: $FILL_RESULT"
-    fi
+    # 填写标题
+    echo ""
+    echo "=== 填写标题 ==="
+    ESCAPED_TITLE=$(echo "$title" | sed 's/"/\\"/g')
+    FILL_JSON="{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"chrome_fill_or_select\",\"arguments\":{\"selector\":\"input[placeholder*=\\\"标题\\\"]\",\"value\":\"$ESCAPED_TITLE\"}},\"id\":6}"
+    FILL_RESULT=$(mcp_call "$FILL_JSON")
+    echo "填写: $FILL_RESULT"
+
 
     echo ""
     echo "============================================"
