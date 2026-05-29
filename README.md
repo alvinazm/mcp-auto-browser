@@ -69,14 +69,14 @@
 
 2. 全局安装 `mcp-chrome-bridge`
    ```bash
-   # npm
-   npm install -g mcp-chrome-bridge
-
    # pnpm（推荐）
    pnpm config set enable-pre-post-scripts true
    pnpm install -g mcp-chrome-bridge
    # 如果 postinstall 未运行，手动注册：
    mcp-chrome-bridge register
+
+   # npm
+   npm install -g mcp-chrome-bridge
    ```
 
 3. 加载 Chrome 扩展
