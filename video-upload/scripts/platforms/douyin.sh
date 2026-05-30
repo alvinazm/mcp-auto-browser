@@ -58,7 +58,8 @@ upload_video_douyin() {
         return 1
     fi
     echo "导航: OK"
-
+    sleep 5
+    
     human_read_page_delay
 
     echo ""

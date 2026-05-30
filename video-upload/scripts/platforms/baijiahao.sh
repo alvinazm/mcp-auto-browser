@@ -49,6 +49,7 @@ upload_video_baijiahao() {
         return 1
     fi
     echo "导航: OK"
+    sleep 5
 
     # 滚动页面，让上传区域可见
     echo ""

@@ -51,6 +51,7 @@ upload_video_x() {
         return 1
     fi
     echo "导航: OK"
+    sleep 5
 
     # 模拟人类阅读页面
     human_read_page_delay
