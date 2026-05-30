@@ -7,3 +7,7 @@
 # 扩展ID
 - hbdgbgagpkpjffpklnamcljpakneikee
 - ~/Library/Application\ Support/Google/Chrome/NativeMessagingHosts/com.chromemcp.nativehost.json
+
+# 常见问题
+- 如果chrome扩展连接不上，就是扩展ID不匹配
+- 如果脚本失效，就是12306被Kill了，但chrome没有自动重试连接，需要手动打开扩展连接
